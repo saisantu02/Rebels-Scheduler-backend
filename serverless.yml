@@ -1,0 +1,92 @@
+service: ExamScheduler
+plugins:
+  - serverless-offline
+custom:
+  tableName: "scheduler-table-${sls:stage}"
+
+frameworkVersion: "3"
+
+provider:
+  name: aws
+  runtime: nodejs14.x
+  region: ap-south-1
+  profile: iamUser
+  httpApi:
+    cors: true
+  iam:
+    role:
+      statements:
+        - Effect: Allow
+          Action:
+            - dynamodb:Query
+            - dynamodb:Scan
+            - dynamodb:GetItem
+            - dynamodb:PutItem
+            - dynamodb:UpdateItem
+            - dynamodb:DeleteItem
+          Resource:
+            - Fn::GetAtt: [SchedulerTable, Arn]
+  environment:
+    SCHEDULER_TABLE: ${self:custom.tableName}
+
+resources:
+  Resources:
+    SchedulerTable:
+      Type: AWS::DynamoDB::Table
+      Properties:
+        AttributeDefinitions:
+          - AttributeName: PK
+            AttributeType: S
+          - AttributeName: SK
+            AttributeType: S
+        KeySchema:
+          - AttributeName: PK
+            KeyType: HASH
+          - AttributeName: SK
+            KeyType: RANGE
+        BillingMode: PAY_PER_REQUEST
+        TableName: ${self:custom.tableName}
+
+functions:
+
+  postExamDetails:
+    handler: src/exams/index.postExamDetails
+    events:
+      - httpApi:
+          method: POST
+          path: /schedule
+  
+  getExamDetails:
+    handler: src/exams/index.getExamDetails
+    events:
+      - httpApi:
+          method: GET
+          path: /schedule
+
+  getBranches:
+      handler: src/lookup/index.getBranches
+      events:
+        - httpApi:
+            method: GET
+            path: /branches
+
+  getDepartmentByBranch:
+    handler: src/lookup/index.getDepartmentByBranch
+    events:
+      - httpApi:
+          method: GET
+          path: /department
+
+  getSubjectsByDeptAndSem:
+    handler: src/subjects/index.getSubjectsByDeptAndSem
+    events:
+      - httpApi:
+          method: GET
+          path: /subjects
+  
+  deleteSchedule:
+    handler: src/exams/index.deleteSchedule
+    events:
+      - httpApi:
+          method: DELETE
+          path: /deletion/{examtype}
